@@ -1,0 +1,154 @@
+<!DOCTYPE HTML>
+<html>
+  <head>
+    <title>base32k</title>
+    <style>
+      table, td {
+        font-family: sans-serif;
+        padding: 4px;
+        border: 1px solid silver;
+        border-collapse: collapse;
+      }
+      small {
+        color: silver;
+      }
+    </style>
+    <script type="text/javascript" charset="utf-8" src="base32k.js"></script>
+  </head>
+
+  <body>
+    <h1>Large Integer Tests</h1>
+    <table>
+      <tbody id="large-tests">
+      </tbody>
+    </table>
+
+    <h1>Small Integer Tests</h1>
+    <table>
+      <tbody id="small-tests">
+      </tbody>
+    </table>
+
+    <h1>Zero Tests</h1>
+    <table>
+      <tbody id="zero-tests">
+      </tbody>
+    </table>
+
+    <script>
+      var large = new Array(1024 * 1024 * 10);
+      var small = new Array(1024 * 1024 * 10);
+      var zero = new Array(1024 * 1024 * 10);
+      for (var i = 0; i < 1024 * 1024 * 10; i++) {
+        large[i] = (Math.random() * 0xffffffff) | 0;
+        small[i] = (Math.random() * 0xffff) | 0;
+        zero[i] = 0;
+      }
+
+      var tests = [
+      {
+        name: "json",
+        enc: function(i) { return JSON.stringify(i) },
+        dec: function(i) { return JSON.parse(i) }
+      },
+      {
+        name: "base64 (ascii string)",
+        enc: function(data) {
+          return btoa(data.map(function(i) {
+            return String.fromCharCode(0xff & (i >>> 24), 0xff & (i >>> 16), 0xff & (i >>> 8), 0xff & i)
+          }).join(''))
+        },
+        dec: function(data) {
+          data = atob(data);
+          var out = [];
+          for (var i = 0, len = data.length; i < len; i += 4) {
+            out.push((data.charCodeAt(i+0) << 24) | (data.charCodeAt(i+1) << 16) | (data.charCodeAt(i+2) << 8) | data.charCodeAt(i+3));
+          }
+          return out;
+        }
+      },
+      {
+        name: "base256 (ascii string)",
+        enc: function(data) {
+          return (data.map(function(i) {
+            return String.fromCharCode(0xff & (i >>> 24), 0xff & (i >>> 16), 0xff & (i >>> 8), 0xff & i)
+          }).join(''))
+        },
+        dec: function(data) {
+          var out = [];
+          for (var i = 0, len = data.length; i < len; i += 4) {
+            out.push((data.charCodeAt(i+0) << 24) | (data.charCodeAt(i+1) << 16) | (data.charCodeAt(i+2) << 8) | data.charCodeAt(i+3));
+          }
+          return out;
+        }
+      },
+      {
+        name: "base32k (utf-16 string)",
+        enc: base32k.encode,
+        dec: base32k.decode
+      },
+      {
+        name: "base32k (packed json)",
+        enc: function(i) { return base32k.encodeBytes(JSON.stringify(i)) },
+        dec: function(i) { return JSON.parse(base32k.decodeBytes(i)) }
+      }
+      ];
+
+      function iterate(test, k, step, max) {
+        // store
+        try {
+          localStorage["data"] = test.enc(test.data.slice(0, k));
+        } catch (error) {
+          test.done(true);
+          return false;
+        }
+        // verify
+        var data = test.dec(localStorage["data"]);
+        for (var i = 0, len = data.length; i < len; i++) {
+          if (data[i] != test.data[i]) {
+            throw "Verification failed: " + data[i] + " != " + test.data[i];
+          }
+        }
+        if (i != k) {
+          throw "Verification failed";
+        }
+        test.progress(k);
+        if (k + step <= max) {
+          setTimeout(function() { iterate(test, k + step, step, max) }, 1);
+        } else {
+          test.done();
+        }
+      }
+
+      function run(test) {
+        iterate(test, 1, 4 * 1024, 10 * 1024 * 1024);
+      }
+
+      ["large", "small", "zero"].forEach(function(data) {
+        var table = document.getElementById(data + "-tests");
+        tests.forEach(function(t, i) {
+          var test = {
+            enc: t.enc,
+            dec: t.dec,
+            data: window[data],
+            progress: function(k) {
+              document.getElementById(data + "-result-" + i).innerHTML = k * 4 + " bytes stored... ";
+            },
+            done: function(exhausted) {
+              document.getElementById(data + "-result-" + i).innerHTML += exhausted ? "done!" : "need moar data!";
+              document.getElementById(data + "-run-" + i).disabled = false;
+            }
+          };
+          table.insertAdjacentHTML("beforeend", '<tr>' +
+            '<td>' + t.name + '<br><small id="' + data + '-result-' + i + '"></small></td>' +
+            '<td><button id="' + data + '-run-' + i + '">Run</button></td>');
+          document.getElementById(data + "-run-" + i).onclick = function() {
+            this.disabled = true;
+            run(test);
+          };
+        });
+      });
+    </script>
+  </body>
+</html>
+

@@ -1,0 +1,585 @@
+﻿/*
+Copyright (c) 2008 Fred Palmer fred.palmer_at_gmail.com
+
+Permission is hereby granted, free of charge, to any person
+obtaining a copy of this software and associated documentation
+files (the "Software"), to deal in the Software without
+restriction, including without limitation the rights to use,
+copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.
+*/
+function StringBuffer()
+{ 
+    this.buffer = []; 
+} 
+
+StringBuffer.prototype.append = function append(string)
+{ 
+    this.buffer.push(string); 
+    return this; 
+}; 
+
+StringBuffer.prototype.toString = function toString()
+{ 
+    return this.buffer.join(""); 
+}; 
+
+var Base64 =
+{
+    codex : "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=",
+
+    encode : function (input)
+    {
+        var output = new StringBuffer();
+
+        var enumerator = new Utf8EncodeEnumerator(input);
+        while (enumerator.moveNext())
+        {
+            var chr1 = enumerator.current;
+
+            enumerator.moveNext();
+            var chr2 = enumerator.current;
+
+            enumerator.moveNext();
+            var chr3 = enumerator.current;
+
+            var enc1 = chr1 >> 2;
+            var enc2 = ((chr1 & 3) << 4) | (chr2 >> 4);
+            var enc3 = ((chr2 & 15) << 2) | (chr3 >> 6);
+            var enc4 = chr3 & 63;
+
+            if (isNaN(chr2))
+            {
+                enc3 = enc4 = 64;
+            }
+            else if (isNaN(chr3))
+            {
+                enc4 = 64;
+            }
+
+            output.append(this.codex.charAt(enc1) + this.codex.charAt(enc2) + this.codex.charAt(enc3) + this.codex.charAt(enc4));
+        }
+
+        return output.toString();
+    },
+
+    decode : function (input)
+    {
+        var output = new StringBuffer();
+
+        var enumerator = new Base64DecodeEnumerator(input);
+        while (enumerator.moveNext())
+        {
+            var charCode = enumerator.current;
+
+            if (charCode < 128)
+                output.append(String.fromCharCode(charCode));
+            else if ((charCode > 191) && (charCode < 224))
+            {
+                enumerator.moveNext();
+                var charCode2 = enumerator.current;
+
+                output.append(String.fromCharCode(((charCode & 31) << 6) | (charCode2 & 63)));
+            }
+            else
+            {
+                enumerator.moveNext();
+                var charCode2 = enumerator.current;
+
+                enumerator.moveNext();
+                var charCode3 = enumerator.current;
+
+                output.append(String.fromCharCode(((charCode & 15) << 12) | ((charCode2 & 63) << 6) | (charCode3 & 63)));
+            }
+        }
+
+        return output.toString();
+    }
+}
+
+
+function Utf8EncodeEnumerator(input)
+{
+    this._input = input;
+    this._index = -1;
+    this._buffer = [];
+}
+
+Utf8EncodeEnumerator.prototype =
+{
+    current: Number.NaN,
+
+    moveNext: function()
+    {
+        if (this._buffer.length > 0)
+        {
+            this.current = this._buffer.shift();
+            return true;
+        }
+        else if (this._index >= (this._input.length - 1))
+        {
+            this.current = Number.NaN;
+            return false;
+        }
+        else
+        {
+            var charCode = this._input.charCodeAt(++this._index);
+
+            // "\r\n" -> "\n"
+            //
+            if ((charCode == 13) && (this._input.charCodeAt(this._index + 1) == 10))
+            {
+                charCode = 10;
+                this._index += 2;
+            }
+
+            if (charCode < 128)
+            {
+                this.current = charCode;
+            }
+            else if ((charCode > 127) && (charCode < 2048))
+            {
+                this.current = (charCode >> 6) | 192;
+                this._buffer.push((charCode & 63) | 128);
+            }
+            else
+            {
+                this.current = (charCode >> 12) | 224;
+                this._buffer.push(((charCode >> 6) & 63) | 128);
+                this._buffer.push((charCode & 63) | 128);
+            }
+
+            return true;
+        }
+    }
+}
+
+function Base64DecodeEnumerator(input)
+{
+    this._input = input;
+    this._index = -1;
+    this._buffer = [];
+}
+
+Base64DecodeEnumerator.prototype =
+{
+    current: 64,
+
+    moveNext: function()
+    {
+        if (this._buffer.length > 0)
+        {
+            this.current = this._buffer.shift();
+            return true;
+        }
+        else if (this._index >= (this._input.length - 1))
+        {
+            this.current = 64;
+            return false;
+        }
+        else
+        {
+            var enc1 = Base64.codex.indexOf(this._input.charAt(++this._index));
+            var enc2 = Base64.codex.indexOf(this._input.charAt(++this._index));
+            var enc3 = Base64.codex.indexOf(this._input.charAt(++this._index));
+            var enc4 = Base64.codex.indexOf(this._input.charAt(++this._index));
+
+            var chr1 = (enc1 << 2) | (enc2 >> 4);
+            var chr2 = ((enc2 & 15) << 4) | (enc3 >> 2);
+            var chr3 = ((enc3 & 3) << 6) | enc4;
+
+            this.current = chr1;
+
+            if (enc3 != 64)
+                this._buffer.push(chr2);
+
+            if (enc4 != 64)
+                this._buffer.push(chr3);
+
+            return true;
+        }
+    }
+};
+
+/*
+  ch-egg-rlejs.js - Javascript implementation of RLE encode/decode 
+                    combining ASCII encoding for Chuckie Egg levels.
+  Copyright (C) 2009 Mark Lomas
+
+  This program is free software; you can redistribute it and/or
+  modify it under the terms of the GNU General Public License
+  as published by the Free Software Foundation; either version 2
+  of the License, or (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+*/
+
+// RLE decompression reference implementation
+function rleDecode(data)
+{
+	var result = new Array;
+	if(data.length == 0)
+		return result;
+
+	if((data.length % 2) != 0)
+	{
+		alert("Invalid RLE data");
+		return;
+	}
+
+	for(var i = 0; i < data.length; i+=2)
+	{
+		var val = data[i];
+		var count = data[i+1];
+		for(var c = 0; c < count; c++)
+			result[result.length] = val;
+	}
+	return result;
+}
+
+// RLE compression reference implementation
+function rleEncode(data)
+{
+	var result = new Array;
+	if(data.length == 0)
+		return result;
+
+	var count = 1;
+	var r = 0;
+	for(var i = 0; i < (data.length - 1); i++)
+	{
+		// If contiguous sequence ends, or we encounter a ladder/egg
+		// or the sequence reaches 30 elements in length, terminate sequence.
+		if(data[i] != data[i+1] || data[i] >= 3 || count == 30)
+		{
+			result[r] = data[i];
+			result[r+1] = count;
+			count = 0;
+			r +=2;
+		}
+		count++;
+	}
+	result[r] = data[i];
+	result[r+1] = count;
+
+	return result;
+}
+
+function asciiEncode(data)
+{
+	var str = "";
+	for(var i = 0; i < data.length; i+=2)
+	{
+		var rleValue = data[i];
+		var rleSequenceLength = data[i+1];
+
+		if(rleValue < 3) // Sequences are captured for blanks, walls or grains
+			var asciiCode = 36 + (rleValue * 30) + (rleSequenceLength - 1);
+		else // remaining cell types (3 and 4) are treated as one-offs
+			var asciiCode = 33 + (rleValue - 3);
+
+		// Special case for eliminated semi-colons
+		if(asciiCode == 59)
+			asciiCode = 35;
+
+		str += String.fromCharCode(asciiCode);
+	}
+	return str;
+}
+
+function asciiDecode(str)
+{
+	var result = new Array;
+	for(var i = 0; i < str.length; ++i)
+	{
+		var asciiCode = str.charCodeAt(i);
+
+		// Special case handling for semi-colons.
+		if(asciiCode == 35)
+			asciiCode = 59;
+
+		if(asciiCode > 35)
+		{
+			// It is a blank, wall or grain cell.
+			var rleValue = Math.floor((asciiCode - 36) / 30);
+			var rleSequenceLength = ((asciiCode - 36) % 30) + 1;
+		}
+		else
+		{
+			// It is a 'one-off' cell such as egg, ladder, lift etc.
+			var rleValue = (asciiCode - 33) + 3;
+			var rleSequenceLength = 1;
+		}
+		result[i*2] = rleValue;	
+		result[i*2 + 1] = rleSequenceLength;
+	}
+	return result;
+}
+
+// ECMAScript 5 strict mode
+"use strict";
+
+assert2(cr, "cr namespace not created");
+assert2(cr.plugins_, "cr.plugins_ not created");
+
+/////////////////////////////////////
+// Plugin class
+// *** CHANGE THE PLUGIN ID HERE *** - must match the "id" property in edittime.js
+//          vvvvvvvv
+cr.plugins_.LZMACompress = function(runtime)
+{
+	this.runtime = runtime;
+};
+
+(function ()
+{
+	/////////////////////////////////////
+	// *** CHANGE THE PLUGIN ID HERE *** - must match the "id" property in edittime.js
+	//                            vvvvvvvv
+	var pluginProto = cr.plugins_.LZMACompress.prototype;
+		
+	/////////////////////////////////////
+	// Object type class
+	pluginProto.Type = function(plugin)
+	{
+		this.plugin = plugin;
+		this.runtime = plugin.runtime;
+	};
+
+	var typeProto = pluginProto.Type.prototype;
+
+	// called on startup for each object type
+	typeProto.onCreate = function()
+	{
+	};
+
+	/////////////////////////////////////
+	// Instance class
+	pluginProto.Instance = function(type)
+	{
+		this.type = type;
+		this.runtime = type.runtime;
+		
+		// any other properties you need, e.g...
+		// this.myValue = 0;
+		this.RLEencoded = "";
+	};
+	
+	var instanceProto = pluginProto.Instance.prototype;
+
+	// called whenever an instance is created
+	instanceProto.onCreate = function()
+	{
+		// note the object is sealed after this call; ensure any properties you'll ever need are set on the object
+		// e.g...
+		// this.myValue = 0;
+	};
+	
+	// only called if a layout object - draw to a canvas 2D context
+	instanceProto.draw = function(ctx)
+	{
+	};
+	
+	// only called if a layout object in WebGL mode - draw to the WebGL context
+	// 'glw' is not a WebGL context, it's a wrapper - you can find its methods in GLWrap.js in the install
+	// directory or just copy what other plugins do.
+	instanceProto.drawGL = function (glw)
+	{
+	};
+
+	//////////////////////////////////////
+	// Conditions
+	function Cnds() {};
+
+	// the example condition
+	Cnds.prototype.MyCondition = function (myparam)
+	{
+		// return true if number is positive
+		return myparam >= 0;
+	};
+	
+	// ... other conditions here ...
+	
+	pluginProto.cnds = new Cnds();
+	
+	//////////////////////////////////////
+	// Actions
+	function Acts() {};
+
+	// the example action
+	Acts.prototype.compress = function (string)
+	{
+		// alert the message
+		//alert(myparam);
+		var compression_mode = 1,
+		my_lzma = new LZMA("lzma_worker.js");
+		my_lzma.compress(string, compression_mode, function (result) {
+				alert("Compressed: " + result);
+			
+				// Now, let's try to decompress it to make sure it works both ways.
+				my_lzma.decompress(result, function (result) {
+						alert("Decompressed: " + result);
+					}, function (percent) {
+					// Decompressing progress code goes here.
+					document.title = "Decompressing: " + (percent * 100) + "%";
+					}
+				);
+			}, function (percent) {
+				// Compressing progress code goes here.
+				document.title = "Compressing: " + (percent * 100) + "%";
+			}
+		);
+	};
+	
+	function encodeRLE(input) {
+		var encoding = [];
+		var str = ""
+		var prev, count, i;
+		for (count = 1, prev = input[0], i = 1; i < input.length; i++) {
+			if (input[i] != prev) {
+				encoding.push([count, prev]);
+				str += count+prev;
+				count = 1;
+				prev = input[i];
+			}
+			else 
+				count ++;
+		}
+		//encoding.push([count, prev]);
+		str += count+prev;
+		//return encoding;
+		return str;
+	}
+	
+    function compressLZW(uncompressed) {
+        "use strict";
+        // Build the dictionary.
+        var i,
+            dictionary = {},
+            c,
+            wc,
+            w = "",
+            result = [],
+            dictSize = 256;
+        for (i = 0; i < 256; i += 1) {
+            dictionary[String.fromCharCode(i)] = i;
+        }
+ 
+        for (i = 0; i < uncompressed.length; i += 1) {
+            c = uncompressed.charAt(i);
+            wc = w + c;
+            if (dictionary[wc]) {
+                w = wc;
+            } else {
+                result.push(dictionary[w]);
+                // Add wc to the dictionary.
+                dictionary[wc] = dictSize++;
+                w = String(c);
+            }
+        }
+ 
+        // Output the code for w.
+        if (w !== "") {
+            result.push(dictionary[w]);
+        }
+        return result;
+    };
+ 
+ 
+    function decompressLZW (compressed) {
+        "use strict";
+        // Build the dictionary.
+        var i,
+            dictionary = [],
+            w,
+            result,
+            k,
+            entry = "",
+            dictSize = 256;
+        for (i = 0; i < 256; i += 1) {
+            dictionary[i] = String.fromCharCode(i);
+        }
+ 
+        w = String.fromCharCode(compressed[0]);
+        result = w;
+        for (i = 1; i < compressed.length; i += 1) {
+            k = compressed[i];
+            if (dictionary[k]) {
+                entry = dictionary[k];
+            } else {
+                if (k === dictSize) {
+                    entry = w + w.charAt(0);
+                } else {
+                    return null;
+                }
+            }
+ 
+            result += entry;
+ 
+            // Add w+entry[0] to the dictionary.
+            dictionary[dictSize++] = w + entry.charAt(0);
+ 
+            w = entry;
+        }
+        return result;
+    };
+// base32k.js / https://github.com/simonratner/base32k
+// Copyright (C) 2012 Simon Ratner, distributed under the MIT license.
+(function(a){var b=function(a,b){return function(c){typeof c=="number"&&(c=[c]);var d=[];for(var e=0,f=c.length;e<f;e+=b)d.push(a.apply(null,c.slice(e,e+b)));return d.join("")}}(String.fromCharCode,2048),c=function(a){if(a>=13312&&a<=19893)return a-13312;if(a>=19968&&a<=40869)return a-13386;if(a>=57344&&a<=62627)return a-29860;throw"Invalid encoding U+"+("000"+a.toString(16).toUpperCase()).slice(-4)},d=function(a){return a<6582?13312+a:a<27484?19968+a-6582:57344+a-27484};a.base32k={encode:function(a){var c=a.length*32,e=[];for(var f,g,h,i=0;i<c;i+=15)g=i/32|0,h=i%32,h<=17?f=32767&a[g]>>>17-h:f=32767&a[g]<<h-17|32767&a[g+1]>>>49-h,e.push(d(f));return e.push(9231-(i-c)),b(e)},encodeBytes:function(a){var c=a.length*8,e=typeof a=="string"?function(b){return a.charCodeAt(b)}:function(b){return a[b]},f=[];for(var g,h,i,j=0;j<c;j+=15)h=j/8|0,i=j%8,g=e(h)<<7+i,i==0?g|=e(h+1)>>>1:g|=e(h+1)<<i-1|e(h+2)>>>9-i,f.push(d(g&32767));return f.push(9231-(j-c)),b(f)},decode:function(a){var b=a.charCodeAt(a.length-1)-9216;if(b<1||b>15)throw"Invalid encoding";var d=[];for(var e,f,g,h=0,i=a.length-1;h<i;h++)e=c(a.charCodeAt(h)),f=h*15/32|0,g=h*15%32,g<=17?d[f]|=e<<17-g:(d[f]|=e>>>g-17,d[f+1]|=e<<49-g);return g<=17?d[f]&=4294967295<<32-b-g:b>32-g?d[f+1]&=4294967295<<64-b-g:(d[f]&=4294967295<<32-b-g,d.length--),d},decodeBytes:function(a){var d=a.charCodeAt(a.length-1)-9216;if(d<1||d>15)throw"Invalid encoding";var e=[];for(var f,g,h,i=0,j=a.length-1;i<j;i++)f=c(a.charCodeAt(i)),g=i*15/8|0,h=i*15%8,e[g]|=255&f>>>7+h,h==0?e[g+1]|=255&f<<1:(e[g+1]|=255&f>>>h-1,e[g+2]|=255&f<<9-h);return e.length=((a.length-2)*15+d)/8,b(e)}}})(this);
+	
+	Acts.prototype.compressRLE = function (string)
+	{
+		this.RLEencoded = base32k.encodeBytes(string);
+	};
+	
+	// ... other actions here ...
+	
+	pluginProto.acts = new Acts();
+	
+	//////////////////////////////////////
+	// Expressions
+	function Exps() {};
+	
+	// the example expression
+	/*Exps.prototype.MyExpression = function (ret)	// 'ret' must always be the first parameter - always return the expression's result through it!
+	{
+		ret.set_int(1337);				// return our value
+		// ret.set_float(0.5);			// for returning floats
+		// ret.set_string("Hello");		// for ef_return_string
+		// ret.set_any("woo");			// for ef_return_any, accepts either a number or string
+	};*/
+	Exps.prototype.RLEencoded = function (ret)	// 'ret' must always be the first parameter - always return the expression's result through it!
+	{
+		ret.set_any(this.RLEencoded);				// return our value
+		// ret.set_float(0.5);			// for returning floats
+		// ret.set_string("Hello");		// for ef_return_string
+		// ret.set_any("woo");			// for ef_return_any, accepts either a number or string
+	};
+	
+	
+	// ... other expressions here ...
+	
+	pluginProto.exps = new Exps();
+
+}());

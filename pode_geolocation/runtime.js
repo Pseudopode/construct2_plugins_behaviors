@@ -41,7 +41,9 @@ cr.plugins_.Pode_Geolocation = function(runtime)
 	{
 		this.type = type;
 		this.runtime = type.runtime;
-		
+
+		this.pos = {};
+		this.err = {};
 		// any other properties you need, e.g...
 		// this.myValue = 0;
 
@@ -55,10 +57,7 @@ cr.plugins_.Pode_Geolocation = function(runtime)
 		// note the object is sealed after this call; ensure any properties you'll ever need are set on the object
 		// e.g...
 		// this.myValue = 0;
-		this.latitude  = 0.0;
-		this.longitude = 0.0;
-		this.altitude  = 0.0;
-		var thisPlugin = this;
+	
 	};
 	
 	// only called if a layout object - draw to a canvas 2D context
@@ -72,16 +71,34 @@ cr.plugins_.Pode_Geolocation = function(runtime)
 	instanceProto.drawGL = function (glw)
 	{
 	};
+			
+  instanceProto.initiate_geolocation = function() {    
+            this.pos=null;
+            var self = this;
+            navigator.geolocation.getCurrentPosition(
+				function (_position){ 
+                    self.pos=_position;
+					self.runtime.trigger(cr.plugins_.Pode_Geolocation.prototype.cnds.isRequest, self);	
+                },
+				function(_err){
+					self.err=_err;
+					self.runtime.trigger(cr.plugins_.Pode_Geolocation.prototype.cnds.onErr, self);			
+				}
+			);  
+      }
 
 	//////////////////////////////////////
 	// Conditions
 	function Cnds() {};
 
 	// the example condition
-	Cnds.prototype.MyCondition = function (myparam)
+	Cnds.prototype.isRequest = function ()
 	{
-		// return true if number is positive
-		return myparam >= 0;
+		return true;
+	};
+		Cnds.prototype.onErr = function ()
+	{
+		return true;
 	};
 	
 	// ... other conditions here ...
@@ -93,10 +110,9 @@ cr.plugins_.Pode_Geolocation = function(runtime)
 	function Acts() {};
 
 	// the example action
-	Acts.prototype.MyAction = function (myparam)
+	Acts.prototype.Request = function ()
 	{
-		// alert the message
-		alert(myparam);
+		this.initiate_geolocation();
 	};
 	
 	// ... other actions here ...
@@ -115,46 +131,123 @@ cr.plugins_.Pode_Geolocation = function(runtime)
 		// ret.set_string("Hello");		// for ef_return_string
 		// ret.set_any("woo");			// for ef_return_any, accepts either a number or string
 	};*/
-	function myPosition(position) {
-		thisPlugin.latitude = position.coords.latitude;
-		thisPlugin.longitude = position.coords.longitude;
-		thisPlugin.altitude = position.coords.altitude;
-	}
 	// ... other expressions here ...
 	Exps.prototype.latitude = function (ret)	// 'ret' must always be the first parameter - always return the expression's result through it!
 	{
-		var startPos;
-		navigator.geolocation.getCurrentPosition(function(position) {
-			startPos = position;
+	
+		if (this.pos.coords.latitude != null)
+		{
+			ret.set_float(this.pos.coords.latitude);				// return our value
 		}
-		
-		this.latitude = startPos.coords.latitude;
-		
-		ret.set_float(this.latitude);				// return our value
+		else {
+			ret.set_string("unavailable");
+		}
+			
 	};
 	Exps.prototype.longitude = function (ret)	// 'ret' must always be the first parameter - always return the expression's result through it!
 	{
-		var startPos;
-		navigator.geolocation.getCurrentPosition(function(position) {
-			startPos = position;
+	
+				// return our value
+		if (this.pos.coords.longitude != null)
+		{
+			ret.set_float(this.pos.coords.longitude);				// return our value
 		}
-
-		this.longitude = startPos.coords.longitude;		
+		else {
+			ret.set_string("unavailable");
+		}
 		
-		ret.set_float(this.longitude);				// return our value
+		
 	};
 	Exps.prototype.altitude = function (ret)	// 'ret' must always be the first parameter - always return the expression's result through it!
+	{	
+					// return our value
+		if (this.pos.coords.altitude != null)
+		{
+			ret.set_float(this.pos.coords.altitude);				// return our value
+		}
+		else {
+			ret.set_string("unavailable");
+		}
+		
+	};
+	Exps.prototype.error = function (ret)
 	{
-		var startPos;
-		navigator.geolocation.getCurrentPosition(function(position) {
-			startPos = position;
+	        
+		if(this.err != null){	
+			switch(this.err.code)  
+            {  
+                case this.err.PERMISSION_DENIED: ret.set_string("user did not share geolocation data");  
+                break;  
+                case this.err.POSITION_UNAVAILABLE: ret.set_string("could not detect current position");  
+                break;  
+                case this.err.TIMEOUT: ret.set_string("retrieving position timed out");  
+                break;  
+                default: ret.set_string("unknown error");  
+                break;  
+            }  
+		}
+		else {
+			ret.set_string("unavailable");
+		}
+	};
+	Exps.prototype.accuracy = function (ret)	// 'ret' must always be the first parameter - always return the expression's result through it!
+	{	
+	
+		if (this.pos.coords.accuracy != null)
+		{
+			ret.set_float(this.pos.coords.accuracy);				// return our value
+		}
+		else {
+			ret.set_string("unavailable");
+		}
+	};
+	Exps.prototype.altitudeAccuracy = function (ret)	// 'ret' must always be the first parameter - always return the expression's result through it!
+	{	
+		if (this.pos.coords.altitudeAccuracy != null)
+		{	
+			ret.set_float(this.pos.coords.altitudeAccuracy);	
+		}			// return our value
+		else {
+			ret.set_string("unavailable");
 		}
 
-		this.altitude = startPos.coords.altitude;				
 		
-		ret.set_float(this.altitude);				// return our value
 	};
-	
+	Exps.prototype.heading = function (ret)	// 'ret' must always be the first parameter - always return the expression's result through it!
+	{	
+		if (this.pos.coords.heading != null)
+		{	
+			ret.set_float(this.pos.coords.heading);	
+		}			// return our value
+		else {
+			ret.set_string("unavailable");
+		}
+
+		
+	};
+	Exps.prototype.speed = function (ret)	// 'ret' must always be the first parameter - always return the expression's result through it!
+	{	
+		if (this.pos.coords.speed != null)
+		{		
+			ret.set_float(this.pos.coords.speed);
+		}			// return our value
+		else {
+			ret.set_string("unavailable");
+		}
+
+		
+	};
+	Exps.prototype.timestamp = function (ret)	// 'ret' must always be the first parameter - always return the expression's result through it!
+	{	
+		if (this.pos.timestamp != null)
+		{		
+			ret.set_float(this.pos.timestamp);		
+		}			// return our value
+		else {
+			ret.set_string("unavailable");
+		}
+		
+	};
 	pluginProto.exps = new Exps();
 
 }());

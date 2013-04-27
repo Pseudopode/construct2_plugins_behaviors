@@ -52,8 +52,9 @@
 //				script_name);		// corresponding runtime function name
 				
 // example				
-AddNumberParam("Number", "Enter a number to test if positive.");
-AddCondition(0, cf_none, "Is number positive", "My category", "{0} is positive", "Description for my condition!", "MyCondition");
+
+AddCondition(0, cf_trigger, "Is request approved", "Permissons", "Request approved?", "Is request approved and here's and geoposition Object", "isRequest");
+AddCondition(1, cf_trigger, "On error", "Permissons", "Error accured", "Errrrr", "onErr");
 
 ////////////////////////////////////////
 // Actions
@@ -66,9 +67,8 @@ AddCondition(0, cf_none, "Is number positive", "My category", "{0} is positive",
 //			 description,		// appears in event wizard dialog when selected
 //			 script_name);		// corresponding runtime function name
 
-// example
-AddStringParam("Message", "Enter a string to alert.");
-AddAction(0, af_none, "Alert", "My category", "Alert {0}", "Description for my action!", "MyAction");
+
+AddAction(0, af_none, "Request permisson", "Permissons", "Request Permisson", "Request permisson from user, and get current position object", "Request");
 
 ////////////////////////////////////////
 // Expressions
@@ -86,6 +86,13 @@ AddAction(0, af_none, "Alert", "My category", "Alert {0}", "Description for my a
 AddExpression(0, ef_return_any, "Latitude", "Geolocation", "latitude", "Return the latitude of the user");
 AddExpression(1, ef_return_any, "Longitude", "Geolocation", "longitude", "Return the longitude of the user");
 AddExpression(2, ef_return_any, "Altitude", "Geolocation", "altitude", "Return the altitude of the user");
+AddExpression(3, ef_return_any, "Err", "Geolocation", "error", "Return the error");
+AddExpression(4, ef_return_any, "Accuracy", "Geolocation", "accuracy", "Return the Accuracy");
+AddExpression(5, ef_return_any, "altitudeAccuracy", "Geolocation", "altitudeAccuracy", "Return the altitudeAccuracy");
+AddExpression(6, ef_return_any, "Heading", "Geolocation", "heading", "Return the Heading");
+AddExpression(7, ef_return_any, "Speed", "Geolocation", "speed", "Return the Speed");
+AddExpression(8, ef_return_any, "TimeStamp", "Geolocation", "timestamp", "Return the TimeStamp");
+
 
 ////////////////////////////////////////
 ACESDone();

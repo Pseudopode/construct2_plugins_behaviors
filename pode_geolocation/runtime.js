@@ -195,7 +195,7 @@ cr.plugins_.Pode_Geolocation = function(runtime)
 	
 		if (this.pos.coords.accuracy != null)
 		{
-			ret.set_float(this.pos.coords.accuracy);				// return our value
+			ret.set_float(this.pos.coords.accuracy);				// Returns centimeters
 		}
 		else {
 			ret.set_string("unavailable");

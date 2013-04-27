@@ -87,7 +87,7 @@ AddExpression(0, ef_return_any, "Latitude", "Geolocation", "latitude", "Return t
 AddExpression(1, ef_return_any, "Longitude", "Geolocation", "longitude", "Return the longitude of the user");
 AddExpression(2, ef_return_any, "Altitude", "Geolocation", "altitude", "Return the altitude of the user");
 AddExpression(3, ef_return_any, "Err", "Geolocation", "error", "Return the error");
-AddExpression(4, ef_return_any, "Accuracy", "Geolocation", "accuracy", "Return the Accuracy");
+AddExpression(4, ef_return_any, "Accuracy", "Geolocation", "accuracy", "Return the Accuracy (cm)");
 AddExpression(5, ef_return_any, "altitudeAccuracy", "Geolocation", "altitudeAccuracy", "Return the altitudeAccuracy");
 AddExpression(6, ef_return_any, "Heading", "Geolocation", "heading", "Return the Heading");
 AddExpression(7, ef_return_any, "Speed", "Geolocation", "speed", "Return the Speed");

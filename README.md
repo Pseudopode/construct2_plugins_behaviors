@@ -16,6 +16,8 @@ Two plugins are created by rex_rainbow and R0j0hound:
 
 are created by rex_rainbow and R0j0hound on Scirra's Construct2 forum. I placed them here only because I added some functions to the original plugins, and I maintain those portions of code.
 
+###Third Party Libraries
+
 Other plugins, including the:
 
 * 1StrokeGestureRecognizer
